@@ -9,12 +9,13 @@ let gameState = "START";
 let scrollX = 0;
 let levelWidth = 15000;
 let onGround = false;
+let playerScale = 1.0; // Neu: Für den "Essen"-Effekt
 
 let btnStart, btnFS, btnRetry, btnJumpOverlay;
 
 function preload() {
   playerImg = loadImage('brawler.png');
-  portalImg = loadImage('noa_portal.png'); // Das Gesicht von Noa
+  portalImg = loadImage('noa_portal.png');
   bgMusic = loadSound('musik.mp3');
 }
 
@@ -92,14 +93,13 @@ function toggleFS() {
 }
 
 function resetGame() {
-  // START-POSITION FIX: Direkt auf die erste Plattform setzen
-  // Erste Plattform ist bei height - 110, Brawler ist 60 hoch
   let startY = height - 110 - 60;
   player = { x: 100, y: startY, w: 60, h: 60, velocity: 0, gravity: 0.85, jumpStrength: -18.5, speed: 7.8 };
+  playerScale = 1.0;
   platforms = []; particles = [];
   generateLevel();
   timer = 40; scrollX = 0; lives = 3;
-  onGround = true; // Damit er am Anfang nicht zuckt
+  onGround = true;
 }
 
 function generateLevel() {
@@ -124,6 +124,12 @@ function draw() {
   background(40, 150, 255); 
   if (gameState === "START") { drawMenu(); } else {
     if (gameState === "PLAY") updateGame();
+    
+    // Wenn gewonnen, Figur schrumpfen lassen
+    if (gameState === "WIN") {
+      playerScale = lerp(playerScale, 0, 0.1);
+    }
+
     push();
     translate(-scrollX, 0); 
     drawClouds(); drawSpikes();
@@ -134,7 +140,16 @@ function draw() {
         fill(124, 252, 0); rect(p.x, p.y, p.w, 10, 8); 
       }
     }
-    if (playerImg) image(playerImg, player.x, player.y, player.w, player.h);
+    
+    // Brawler zeichnen (mit Schrumpf-Effekt)
+    if (playerImg && playerScale > 0.01) {
+      push();
+      translate(player.x + player.w/2, player.y + player.h/2);
+      scale(playerScale);
+      image(playerImg, -player.w/2, -player.h/2, player.w, player.h);
+      pop();
+    }
+    
     drawConfetti();
     pop();
     drawUI();
@@ -150,21 +165,26 @@ function updateGame() {
   player.velocity += player.gravity;
   player.y += player.velocity;
   onGround = false;
+  
   for (let p of platforms) {
     if (player.x + player.w*0.6 > p.x && player.x + player.w*0.4 < p.x + p.w &&
         player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.velocity) {
-      if (p.isPortal) { gameState = "WIN"; createConfetti(p.x + 100, p.y + 100); }
-      player.y = p.y - player.h; player.velocity = 0; onGround = true;
+      
+      if (p.isPortal) {
+        // Erst Gewinnen, wenn der Brawler in der Mitte des Gesichts ist
+        if (player.x > p.x + 70) {
+          gameState = "WIN"; 
+          createConfetti(p.x + 100, p.y + 150);
+        }
+      } else {
+        player.y = p.y - player.h; player.velocity = 0; onGround = true;
+      }
     }
   }
   if (player.y > height) {
     lives--;
     if (lives <= 0) { gameState = "GAMEOVER"; updateUIState(); }
-    else { 
-      player.x = 100; 
-      player.y = height - 110 - 60; // RESPAWN-FIX
-      player.velocity = 0; scrollX = 0; timer = 40; onGround = true;
-    }
+    else { player.x = 100; player.y = height - 110 - 60; player.velocity = 0; scrollX = 0; timer = 40; onGround = true; }
   }
 }
 
@@ -180,9 +200,8 @@ function drawUI() {
   textAlign(LEFT, TOP);
   let hearts = "";
   for(let i=0; i<lives; i++) hearts += "❤️";
-  noStroke(); // UI-FIX: Alle Ränder weg
-  fill(255); 
-  textSize(24); text(hearts, 20, 15);
+  noStroke(); 
+  fill(255); textSize(24); text(hearts, 20, 15);
   textSize(18); text("TIME: " + ceil(timer) + "s", 20, 45);
   
   if (gameState === "GAMEOVER") drawEndScreen("GAME OVER", color(255, 50, 50));
@@ -214,19 +233,19 @@ function drawClouds() { fill(255, 255, 255, 150); noStroke(); for(let c of cloud
 function drawPortal(x, y) {
   if (portalImg) {
     image(portalImg, x, y, 200, 200);
-    
-    // 1. Dunkler Mund-Hintergrund
     fill(40, 0, 0); noStroke();
-    ellipse(x + 100, y + 155, 50, 25);
+    ellipse(x + 100, y + 155, 60, 30); // Etwas breiterer Mund-Hintergrund
     
-    // 2. Zungen-Animation (Rosa Zunge fährt aus dem Mund)
-    let tongueLen = map(sin(frameCount * 0.12), -1, 1, 10, 55);
-    fill(255, 120, 150); // Schönes Zungen-Rosa
-    rect(x + 85, y + 155, 30, tongueLen, 15);
+    // Zungen-Animation (Breiter & Wackelnd)
+    let tongueLen = map(sin(frameCount * 0.12), -1, 1, 15, 65);
+    let tongueWobble = sin(frameCount * 0.2) * 5; // Kleiner Wackler zur Seite
     
-    // 3. Kleiner Strich in der Mitte der Zunge
-    stroke(200, 80, 100); strokeWeight(2);
-    line(x + 100, y + 158, x + 100, y + 153 + tongueLen);
+    fill(255, 100, 130); 
+    // Zunge ist jetzt 50px breit (vorher 30)
+    rect(x + 75 + tongueWobble, y + 155, 50, tongueLen, 20);
+    
+    stroke(200, 60, 80); strokeWeight(3);
+    line(x + 100 + tongueWobble, y + 158, x + 100 + tongueWobble, y + 153 + tongueLen);
     noStroke();
   }
 }
