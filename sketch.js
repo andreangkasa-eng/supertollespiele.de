@@ -1,4 +1,4 @@
-let playerImg;
+let playerImg, bgMusic;
 let player;
 let platforms = [];
 let clouds = [];
@@ -9,25 +9,21 @@ let gameState = "START";
 let scrollX = 0;
 let levelWidth = 15000;
 let onGround = false;
+let checkpointX = 100, checkpointY = 200;
 
 let btnStart, btnFS, btnRetry, btnJumpOverlay;
 
 function preload() {
   playerImg = loadImage('brawler.png');
+  // Musik laden - Datei muss musik.mp3 heißen!
+  bgMusic = loadSound('musik.mp3');
 }
 
 function setup() {
   pixelDensity(1);
   createCanvas(windowWidth, windowHeight);
   
-  createElement('style', `
-    canvas, button { 
-      touch-action: none !important; 
-      user-select: none !important; 
-      -webkit-tap-highlight-color: rgba(0,0,0,0);
-    }
-  `);
-
+  // BUTTONS ERSTELLEN
   btnStart = createButton('START GAME');
   styleButton(btnStart, height/2, '#32CD32');
   btnStart.mousePressed(startGame);
@@ -76,69 +72,57 @@ function updateUIState() {
   }
 }
 
-function startGame() { gameState = "PLAY"; updateUIState(); }
-function resetToStart() { resetGame(); gameState = "START"; updateUIState(); }
+function startGame() { 
+  gameState = "PLAY"; 
+  updateUIState(); 
+  // Musik starten, wenn sie geladen ist
+  if (bgMusic && !bgMusic.isPlaying()) {
+    bgMusic.loop();
+    bgMusic.setVolume(0.5);
+  }
+}
+
+function resetToStart() { 
+  resetGame(); 
+  gameState = "START"; 
+  updateUIState(); 
+}
 
 function doJump() {
-  if (gameState === "PLAY") {
-    if (onGround) {
-       player.velocity = player.jumpStrength;
-       onGround = false;
-    }
+  if (gameState === "PLAY" && onGround) {
+    player.velocity = player.jumpStrength;
+    onGround = false;
   }
 }
 
 function toggleFS() {
   let isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
   if (!isIOS) { fullscreen(!fullscreen()); } 
-  else { alert("iPhone-Tipp: Safari 'Teilen' -> 'Zum Home-Bildschirm'!"); }
+  else { alert("iPhone: Safari 'Teilen' -> 'Zum Home-Bildschirm'!"); }
 }
 
 function resetGame() {
-  player = { x: 100, y: height - 250, w: 80, h: 80, velocity: 0, gravity: 0.8, jumpStrength: -18, speed: 7 };
+  // Start-Position: Auf der ersten Plattform (y = height - 160 - player.h)
+  player = { x: 100, y: height - 160 - 80, w: 80, h: 80, velocity: 0, gravity: 0.8, jumpStrength: -18, speed: 7 };
   platforms = []; particles = [];
   generateLevel();
   timer = 40; scrollX = 0; lives = 3;
 }
 
-function respawnAtStart() {
-  player.x = 100; player.y = height - 250; player.velocity = 0;
-  scrollX = 0; timer = 40;
-}
-
 function generateLevel() {
-  // 1. Start-Plattform
   platforms.push({x: 0, y: height - 160, w: 900, h: 80});
-  
   let currentX = 1000;
   let currentY = height - 200;
-  let goalY = height - 250; // Die Zielhöhe
-  
-  // 2. Mittlerer Teil (Zufall)
   while (currentX < levelWidth - 1500) {
     let pWidth = random(250, 500);
     currentY = constrain(currentY + random(-120, 120), 250, height - 180);
     platforms.push({x: currentX, y: currentY, w: pWidth, h: 40});
     currentX += pWidth + random(160, 260);
   }
-  
-  // 3. Übergang zum Finale (Die "Treppe")
-  // Wir bauen zwei extra Plattformen, die den Spieler sicher zum Ziel führen
-  let bridgeX1 = currentX;
-  let bridgeY1 = (currentY + goalY) / 2; // Genau in der Mitte der Höhe
-  platforms.push({x: bridgeX1, y: bridgeY1, w: 400, h: 40});
-  
-  currentX = bridgeX1 + 400 + 200; // 200er Lücke
-  
-  // 4. Die finale Ziel-Plattform
-  let finalWidth = 1500; 
-  platforms.push({x: currentX, y: goalY, w: finalWidth, h: 60});
-  
-  // 5. Das Portal (am Ende der Ziel-Plattform)
-  platforms.push({x: currentX + 800, y: goalY - 210, w: 100, h: 220, isPortal: true});
-  
-  // Wir passen die LevelWidth an das tatsächliche Ende an
-  levelWidth = currentX + finalWidth;
+  let finalX = currentX + 400;
+  platforms.push({x: finalX, y: height - 250, w: 1500, h: 60});
+  platforms.push({x: finalX + 800, y: height - 460, w: 100, h: 220, isPortal: true});
+  levelWidth = finalX + 1500;
 }
 
 function draw() {
@@ -168,22 +152,17 @@ function updateGame() {
   player.velocity += player.gravity;
   player.y += player.velocity;
   onGround = false;
-  
   for (let p of platforms) {
     if (player.x + player.w*0.6 > p.x && player.x + player.w*0.4 < p.x + p.w &&
         player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.velocity) {
-      if (p.isPortal) { 
-        gameState = "WIN"; 
-        createConfetti(p.x + 50, p.y + 100); 
-      }
+      if (p.isPortal) { gameState = "WIN"; createConfetti(p.x + 50, p.y + 100); }
       player.y = p.y - player.h; player.velocity = 0; onGround = true;
     }
   }
-  
   if (player.y > height) {
     lives--;
     if (lives <= 0) { gameState = "GAMEOVER"; updateUIState(); }
-    else { respawnAtStart(); }
+    else { player.x = 100; player.y = height - 240; player.velocity = 0; scrollX = 0; timer = 40; }
   }
 }
 
@@ -210,7 +189,6 @@ function drawEndScreen(txt, col) {
   textAlign(CENTER, CENTER); textSize(50); fill(col); text(txt, width/2, height/2 - 40);
 }
 
-function keyPressed() { if (key === ' ' || keyCode === 32) doJump(); }
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   btnStart.position(windowWidth/2 - 120, height/2);
