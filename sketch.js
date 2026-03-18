@@ -1,4 +1,4 @@
-let playerImg, bgMusic;
+let playerImg, bgMusic, portalImg;
 let player;
 let platforms = [];
 let clouds = [];
@@ -14,6 +14,7 @@ let btnStart, btnFS, btnRetry, btnJumpOverlay;
 
 function preload() {
   playerImg = loadImage('brawler.png');
+  portalImg = loadImage('noa_portal.png'); // Das neue Gesicht-Portal
   bgMusic = loadSound('musik.mp3');
 }
 
@@ -44,7 +45,6 @@ function setup() {
 
   updateUIState();
   resetGame();
-  // Wolken weiter nach oben für mehr Tiefe
   for(let i=0; i<25; i++) clouds.push({x: random(0, levelWidth), y: random(10, 80), s: random(0.6, 1.2)});
 }
 
@@ -92,7 +92,6 @@ function toggleFS() {
 }
 
 function resetGame() {
-  // player.y etwas tiefer starten, jumpStrength leicht erhöht für "Luft"
   player = { x: 100, y: height - 120, w: 60, h: 60, velocity: 0, gravity: 0.85, jumpStrength: -18.5, speed: 7.8 };
   platforms = []; particles = [];
   generateLevel();
@@ -100,28 +99,21 @@ function resetGame() {
 }
 
 function generateLevel() {
-  // Start-Boden tiefer gesetzt
   platforms.push({x: 0, y: height - 110, w: 1000, h: 60});
-  
   let currentX = 1100;
   let currentY = height - 150;
-  
   while (currentX < levelWidth - 1800) {
     let pWidth = random(280, 500);
-    // Plattformen deutlich tiefer begrenzen (max Höhe ist jetzt 150px vom Boden weg)
     currentY = constrain(currentY + random(-90, 90), height - 250, height - 120);
     platforms.push({x: currentX, y: currentY, w: pWidth, h: 35});
     currentX += pWidth + random(180, 260);
   }
-  
-  // FINALE: Eine Brücke, die den Sprung zum Ziel garantiert
   let bridgeX = currentX + 50;
   platforms.push({x: bridgeX, y: height - 160, w: 600, h: 40});
-  
-  let finalX = bridgeX + 750; // Kleiner, sicherer Sprung
+  let finalX = bridgeX + 750; 
   platforms.push({x: finalX, y: height - 180, w: 1200, h: 60});
-  platforms.push({x: finalX + 700, y: height - 390, w: 90, h: 210, isPortal: true});
-  
+  // Das Portal-Bild platzieren
+  platforms.push({x: finalX + 700, y: height - 380, w: 200, h: 200, isPortal: true});
   levelWidth = finalX + 1300;
 }
 
@@ -158,7 +150,7 @@ function updateGame() {
   for (let p of platforms) {
     if (player.x + player.w*0.6 > p.x && player.x + player.w*0.4 < p.x + p.w &&
         player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.velocity) {
-      if (p.isPortal) { gameState = "WIN"; createConfetti(p.x + 45, p.y + 100); }
+      if (p.isPortal) { gameState = "WIN"; createConfetti(p.x + 100, p.y + 100); }
       player.y = p.y - player.h; player.velocity = 0; onGround = true;
     }
   }
@@ -181,11 +173,10 @@ function drawUI() {
   textAlign(LEFT, TOP);
   let hearts = "";
   for(let i=0; i<lives; i++) hearts += "❤️";
-  // UI ohne Blase, dafür mit Schatten für bessere Sichtbarkeit
-  fill(0, 100); text(hearts, 22, 17);
-  fill(255); textSize(24); text(hearts, 20, 15);
-  fill(0, 100); text("TIME: " + ceil(timer) + "s", 22, 47);
-  fill(255); textSize(18); text("TIME: " + ceil(timer) + "s", 20, 45);
+  // FIX: Nur noch eine Text-Ebene, kein Schatten mehr (vermeidet Doppeleffekt)
+  fill(255); 
+  textSize(24); text(hearts, 20, 15);
+  textSize(18); text("TIME: " + ceil(timer) + "s", 20, 45);
   
   if (gameState === "GAMEOVER") drawEndScreen("GAME OVER", color(255, 50, 50));
   if (gameState === "WIN") drawEndScreen("LEVEL COMPLETE!", color(50, 255, 50));
@@ -204,7 +195,6 @@ function windowResized() {
   btnJumpOverlay.size(windowWidth, windowHeight);
 }
 
-// Noch flachere Stacheln (30px) und tiefer am Rand
 function drawSpikes() { 
   fill(60); 
   for (let i = scrollX - 100; i < scrollX + width + 100; i += 40) {
@@ -213,6 +203,16 @@ function drawSpikes() {
 }
 
 function drawClouds() { fill(255, 255, 255, 150); noStroke(); for(let c of clouds) ellipse(c.x, c.y, 70 * c.s, 40 * c.s); }
-function drawPortal(x, y) { fill(75, 0, 130); stroke(255, 0, 255); strokeWeight(4); ellipse(x + 45, y + 105, 90, 200); noStroke(); fill(255,0,255,100); ellipse(x + 45, y + 105, 60 + sin(frameCount*0.1)*10, 170); }
+
+function drawPortal(x, y) {
+  if (portalImg) {
+    image(portalImg, x, y, 200, 200);
+    // Mund-Animation (Ein schwarzer Kreis, der auf- und zugeht)
+    let mouthSize = map(sin(frameCount * 0.15), -1, 1, 5, 30);
+    fill(0);
+    ellipse(x + 100, y + 155, 40, mouthSize);
+  }
+}
+
 function createConfetti(x, y) { for(let i=0; i<150; i++) particles.push({x: x, y: y, vx: random(-6, 6), vy: random(-10, -3), color: color(random(255), random(255), random(255))}); }
 function drawConfetti() { for (let part of particles) { fill(part.color); noStroke(); rect(part.x, part.y, 7, 7); part.x += part.vx; part.y += part.vy; part.vy += 0.15; } }
