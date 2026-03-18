@@ -14,7 +14,7 @@ let btnStart, btnFS, btnRetry, btnJumpOverlay;
 
 function preload() {
   playerImg = loadImage('brawler.png');
-  portalImg = loadImage('noa_portal.png'); // Das neue Gesicht-Portal
+  portalImg = loadImage('noa_portal.png'); // Das Gesicht von Noa
   bgMusic = loadSound('musik.mp3');
 }
 
@@ -92,10 +92,14 @@ function toggleFS() {
 }
 
 function resetGame() {
-  player = { x: 100, y: height - 120, w: 60, h: 60, velocity: 0, gravity: 0.85, jumpStrength: -18.5, speed: 7.8 };
+  // START-POSITION FIX: Direkt auf die erste Plattform setzen
+  // Erste Plattform ist bei height - 110, Brawler ist 60 hoch
+  let startY = height - 110 - 60;
+  player = { x: 100, y: startY, w: 60, h: 60, velocity: 0, gravity: 0.85, jumpStrength: -18.5, speed: 7.8 };
   platforms = []; particles = [];
   generateLevel();
   timer = 40; scrollX = 0; lives = 3;
+  onGround = true; // Damit er am Anfang nicht zuckt
 }
 
 function generateLevel() {
@@ -112,7 +116,6 @@ function generateLevel() {
   platforms.push({x: bridgeX, y: height - 160, w: 600, h: 40});
   let finalX = bridgeX + 750; 
   platforms.push({x: finalX, y: height - 180, w: 1200, h: 60});
-  // Das Portal-Bild platzieren
   platforms.push({x: finalX + 700, y: height - 380, w: 200, h: 200, isPortal: true});
   levelWidth = finalX + 1300;
 }
@@ -127,7 +130,7 @@ function draw() {
     for (let p of platforms) {
       if (p.isPortal) drawPortal(p.x, p.y);
       else { 
-        fill(139, 69, 19); rect(p.x, p.y, p.w, p.h, 8); 
+        fill(139, 69, 19); noStroke(); rect(p.x, p.y, p.w, p.h, 8); 
         fill(124, 252, 0); rect(p.x, p.y, p.w, 10, 8); 
       }
     }
@@ -157,12 +160,16 @@ function updateGame() {
   if (player.y > height) {
     lives--;
     if (lives <= 0) { gameState = "GAMEOVER"; updateUIState(); }
-    else { player.x = 100; player.y = height - 200; player.velocity = 0; scrollX = 0; timer = 40; }
+    else { 
+      player.x = 100; 
+      player.y = height - 110 - 60; // RESPAWN-FIX
+      player.velocity = 0; scrollX = 0; timer = 40; onGround = true;
+    }
   }
 }
 
 function drawMenu() {
-  fill(0, 180); rect(0, 0, width, height);
+  fill(0, 180); noStroke(); rect(0, 0, width, height);
   textAlign(CENTER, CENTER);
   fill(200); textSize(16); text("Noa Productions präsentiert:", width/2, height/2 - 100);
   fill(255, 204, 0); stroke(0); strokeWeight(3); textSize(40); textStyle(BOLD); 
@@ -173,7 +180,7 @@ function drawUI() {
   textAlign(LEFT, TOP);
   let hearts = "";
   for(let i=0; i<lives; i++) hearts += "❤️";
-  // FIX: Nur noch eine Text-Ebene, kein Schatten mehr (vermeidet Doppeleffekt)
+  noStroke(); // UI-FIX: Alle Ränder weg
   fill(255); 
   textSize(24); text(hearts, 20, 15);
   textSize(18); text("TIME: " + ceil(timer) + "s", 20, 45);
@@ -183,7 +190,7 @@ function drawUI() {
 }
 
 function drawEndScreen(txt, col) {
-  fill(0, 200); rect(0, 0, width, height);
+  fill(0, 200); noStroke(); rect(0, 0, width, height);
   textAlign(CENTER, CENTER); textSize(40); fill(col); text(txt, width/2, height/2 - 40);
 }
 
@@ -196,7 +203,7 @@ function windowResized() {
 }
 
 function drawSpikes() { 
-  fill(60); 
+  fill(60); noStroke();
   for (let i = scrollX - 100; i < scrollX + width + 100; i += 40) {
     triangle(i, height, i + 20, height - 30, i + 40, height);
   } 
@@ -207,10 +214,20 @@ function drawClouds() { fill(255, 255, 255, 150); noStroke(); for(let c of cloud
 function drawPortal(x, y) {
   if (portalImg) {
     image(portalImg, x, y, 200, 200);
-    // Mund-Animation (Ein schwarzer Kreis, der auf- und zugeht)
-    let mouthSize = map(sin(frameCount * 0.15), -1, 1, 5, 30);
-    fill(0);
-    ellipse(x + 100, y + 155, 40, mouthSize);
+    
+    // 1. Dunkler Mund-Hintergrund
+    fill(40, 0, 0); noStroke();
+    ellipse(x + 100, y + 155, 50, 25);
+    
+    // 2. Zungen-Animation (Rosa Zunge fährt aus dem Mund)
+    let tongueLen = map(sin(frameCount * 0.12), -1, 1, 10, 55);
+    fill(255, 120, 150); // Schönes Zungen-Rosa
+    rect(x + 85, y + 155, 30, tongueLen, 15);
+    
+    // 3. Kleiner Strich in der Mitte der Zunge
+    stroke(200, 80, 100); strokeWeight(2);
+    line(x + 100, y + 158, x + 100, y + 153 + tongueLen);
+    noStroke();
   }
 }
 
