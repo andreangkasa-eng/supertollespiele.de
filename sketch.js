@@ -89,7 +89,7 @@ function doJump() {
 function toggleFS() {
   let isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
   if (!isIOS) { fullscreen(!fullscreen()); } 
-  else { alert("iPhone: Safari 'Teilen' -> 'Zum Home-Bildschirm'!"); }
+  else { alert("Safari: 'Teilen' -> 'Zum Home-Bildschirm'!"); }
 }
 
 function resetGame() {
@@ -116,26 +116,31 @@ function generateLevel() {
   platforms.push({x: bridgeX, y: height - 160, w: 600, h: 40});
   let finalX = bridgeX + 750; 
   platforms.push({x: finalX, y: height - 180, w: 1200, h: 60});
-  // Das Portal
+  // Das Portal am Ende der letzten Plattform
   platforms.push({x: finalX + 700, y: height - 380, w: 200, h: 200, isPortal: true});
   levelWidth = finalX + 1300;
 }
 
 function draw() {
   background(40, 150, 255); 
-  if (gameState === "START") { drawMenu(); } else {
-    if (gameState === "PLAY") updateGame();
+  
+  if (gameState === "START") { 
+    drawMenu(); 
+  } else {
+    // NUR updaten wenn wir wirklich noch spielen
+    if (gameState === "PLAY") {
+      updateGame();
+    }
     
-    // WIN-ANIMATION: Stoppen und Schrumpfen
+    // Wenn gewonnen, schrumpfen lassen
     if (gameState === "WIN") {
-      playerScale = lerp(playerScale, 0, 0.15);
-      // Den Brawler sanft in die Mitte des Mundes ziehen
-      player.velocity = 0;
+      playerScale = lerp(playerScale, 0, 0.1);
     }
 
     push();
     translate(-scrollX, 0); 
     drawClouds(); drawSpikes();
+    
     for (let p of platforms) {
       if (p.isPortal) drawPortal(p.x, p.y);
       else { 
@@ -144,6 +149,7 @@ function draw() {
       }
     }
     
+    // Brawler zeichnen
     if (playerImg && playerScale > 0.01) {
       push();
       translate(player.x + player.w/2, player.y + player.h/2);
@@ -155,13 +161,12 @@ function draw() {
     drawConfetti();
     pop();
     drawUI();
-    if (gameState === "GAMEOVER" || gameState === "WIN") updateUIState();
   }
 }
 
 function updateGame() {
   timer -= 1/60;
-  if (timer <= 0) gameState = "GAMEOVER";
+  if (timer <= 0) { gameState = "GAMEOVER"; updateUIState(); return; }
   
   player.x += player.speed;
   scrollX = player.x - 150; 
@@ -170,28 +175,30 @@ function updateGame() {
   onGround = false;
   
   for (let p of platforms) {
+    // Kollision mit Plattformen
     if (player.x + player.w*0.6 > p.x && player.x + player.w*0.4 < p.x + p.w &&
         player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.velocity) {
       
       if (p.isPortal) {
-        // DER FIX: Wenn in der Mitte des Gesichts, Bewegung stoppen!
-        if (player.x > p.x + 60) {
-          player.x = p.x + 70; // Festnageln
-          player.speed = 0;    // Vorwärtsdrang stoppen
-          if (gameState !== "WIN") {
-             gameState = "WIN"; 
-             createConfetti(p.x + 100, p.y + 150);
-          }
-        }
+        // RADIKALER STOPP: Sobald er das Gesicht berührt
+        gameState = "WIN"; 
+        player.x = p.x + 70; // Teleport in die Mundmitte
+        player.y = p.y + 100; // Auf die Zunge setzen
+        player.speed = 0;
+        player.velocity = 0;
+        createConfetti(p.x + 100, p.y + 150);
+        updateUIState();
+        return; // Funktion sofort verlassen!
       } else {
         player.y = p.y - player.h; player.velocity = 0; onGround = true;
       }
     }
   }
+
   if (player.y > height) {
     lives--;
     if (lives <= 0) { gameState = "GAMEOVER"; updateUIState(); }
-    else { player.x = 100; player.y = height - 110 - 60; player.velocity = 0; scrollX = 0; timer = 40; onGround = true; }
+    else { player.x = 100; player.y = height - 170; player.velocity = 0; scrollX = 0; timer = 40; onGround = true; }
   }
 }
 
@@ -199,7 +206,7 @@ function drawMenu() {
   fill(0, 180); noStroke(); rect(0, 0, width, height);
   textAlign(CENTER, CENTER);
   fill(200); textSize(16); text("Noa Productions präsentiert:", width/2, height/2 - 100);
-  fill(255, 204, 0); stroke(0); strokeWeight(3); textSize(40); textStyle(BOLD); 
+  fill(255, 204, 0); textSize(40); textStyle(BOLD); 
   text("BLOCK SPRINGER", width/2, height/2 - 55);
 }
 
@@ -207,8 +214,8 @@ function drawUI() {
   textAlign(LEFT, TOP);
   let hearts = "";
   for(let i=0; i<lives; i++) hearts += "❤️";
-  noStroke(); 
-  fill(255); textSize(24); text(hearts, 20, 15);
+  noStroke(); fill(255); 
+  textSize(24); text(hearts, 20, 15);
   textSize(18); text("TIME: " + ceil(timer) + "s", 20, 45);
   
   if (gameState === "GAMEOVER") drawEndScreen("GAME OVER", color(255, 50, 50));
@@ -242,13 +249,10 @@ function drawPortal(x, y) {
     image(portalImg, x, y, 200, 200);
     fill(40, 0, 0); noStroke();
     ellipse(x + 100, y + 155, 60, 30); 
-    
     let tongueLen = map(sin(frameCount * 0.12), -1, 1, 15, 65);
     let tongueWobble = sin(frameCount * 0.2) * 5; 
-    
     fill(255, 100, 130); 
     rect(x + 75 + tongueWobble, y + 155, 50, tongueLen, 20);
-    
     stroke(200, 60, 80); strokeWeight(3);
     line(x + 100 + tongueWobble, y + 158, x + 100 + tongueWobble, y + 153 + tongueLen);
     noStroke();
