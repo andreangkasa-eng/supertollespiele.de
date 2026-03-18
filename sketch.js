@@ -10,6 +10,7 @@ let scrollX = 0;
 let levelWidth = 15000;
 let onGround = false;
 let playerScale = 1.0; 
+let goalX = 0; // Neu: Die exakte Ziellinie
 
 let btnStart, btnFS, btnRetry, btnJumpOverlay;
 
@@ -106,19 +107,24 @@ function generateLevel() {
   platforms.push({x: 0, y: height - 110, w: 1000, h: 60});
   let currentX = 1100;
   let currentY = height - 150;
-  while (currentX < levelWidth - 1800) {
+  while (currentX < levelWidth - 2500) {
     let pWidth = random(280, 500);
     currentY = constrain(currentY + random(-90, 90), height - 250, height - 120);
     platforms.push({x: currentX, y: currentY, w: pWidth, h: 35});
     currentX += pWidth + random(180, 260);
   }
-  let bridgeX = currentX + 50;
-  platforms.push({x: bridgeX, y: height - 160, w: 600, h: 40});
-  let finalX = bridgeX + 750; 
-  platforms.push({x: finalX, y: height - 180, w: 1200, h: 60});
-  // Das Portal am Ende der letzten Plattform
-  platforms.push({x: finalX + 700, y: height - 380, w: 200, h: 200, isPortal: true});
-  levelWidth = finalX + 1300;
+  
+  // Die finale Plattform
+  let finalX = currentX + 400;
+  platforms.push({x: finalX, y: height - 180, w: 2000, h: 60});
+  
+  // Die exakte Ziellinie (Mitte des Gesichts)
+  goalX = finalX + 800; 
+  
+  // Das Portal-Gesicht
+  platforms.push({x: goalX - 100, y: height - 380, w: 200, h: 200, isPortal: true});
+  
+  levelWidth = finalX + 2000;
 }
 
 function draw() {
@@ -127,14 +133,21 @@ function draw() {
   if (gameState === "START") { 
     drawMenu(); 
   } else {
-    // NUR updaten wenn wir wirklich noch spielen
+    // NUR UPDATEN WENN WIR NOCH SPIELEN
     if (gameState === "PLAY") {
       updateGame();
+      
+      // DER ULTIMATIVE CHECK: Ziellinie überschritten?
+      if (player.x > goalX) {
+        handleWin();
+      }
     }
     
-    // Wenn gewonnen, schrumpfen lassen
+    // WIN-ANIMATION
     if (gameState === "WIN") {
-      playerScale = lerp(playerScale, 0, 0.1);
+      playerScale = lerp(playerScale, 0, 0.12);
+      player.velocity = 0;
+      player.speed = 0;
     }
 
     push();
@@ -164,6 +177,18 @@ function draw() {
   }
 }
 
+function handleWin() {
+  if (gameState !== "WIN") {
+    gameState = "WIN";
+    player.speed = 0;
+    player.velocity = 0;
+    player.x = goalX; // Exakt auf die Zunge setzen
+    player.y = height - 180 - 60; // Auf die Höhe der Plattform
+    createConfetti(goalX + 100, height - 250);
+    updateUIState();
+  }
+}
+
 function updateGame() {
   timer -= 1/60;
   if (timer <= 0) { gameState = "GAMEOVER"; updateUIState(); return; }
@@ -175,21 +200,9 @@ function updateGame() {
   onGround = false;
   
   for (let p of platforms) {
-    // Kollision mit Plattformen
-    if (player.x + player.w*0.6 > p.x && player.x + player.w*0.4 < p.x + p.w &&
-        player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.velocity) {
-      
-      if (p.isPortal) {
-        // RADIKALER STOPP: Sobald er das Gesicht berührt
-        gameState = "WIN"; 
-        player.x = p.x + 70; // Teleport in die Mundmitte
-        player.y = p.y + 100; // Auf die Zunge setzen
-        player.speed = 0;
-        player.velocity = 0;
-        createConfetti(p.x + 100, p.y + 150);
-        updateUIState();
-        return; // Funktion sofort verlassen!
-      } else {
+    if (!p.isPortal) { // Nur mit echten Plattformen kollidieren
+      if (player.x + player.w*0.6 > p.x && player.x + player.w*0.4 < p.x + p.w &&
+          player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.velocity) {
         player.y = p.y - player.h; player.velocity = 0; onGround = true;
       }
     }
@@ -252,9 +265,9 @@ function drawPortal(x, y) {
     let tongueLen = map(sin(frameCount * 0.12), -1, 1, 15, 65);
     let tongueWobble = sin(frameCount * 0.2) * 5; 
     fill(255, 100, 130); 
-    rect(x + 75 + tongueWobble, y + 155, 50, tongueLen, 20);
+    rect(x + 75 + tongueWobble, y + 155, 54, tongueLen, 20);
     stroke(200, 60, 80); strokeWeight(3);
-    line(x + 100 + tongueWobble, y + 158, x + 100 + tongueWobble, y + 153 + tongueLen);
+    line(x + 102 + tongueWobble, y + 158, x + 102 + tongueWobble, y + 153 + tongueLen);
     noStroke();
   }
 }
