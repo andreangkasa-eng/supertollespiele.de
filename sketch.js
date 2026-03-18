@@ -9,7 +9,7 @@ let gameState = "START";
 let scrollX = 0;
 let levelWidth = 15000;
 let onGround = false;
-let playerScale = 1.0; // Neu: Für den "Essen"-Effekt
+let playerScale = 1.0; 
 
 let btnStart, btnFS, btnRetry, btnJumpOverlay;
 
@@ -89,7 +89,7 @@ function doJump() {
 function toggleFS() {
   let isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
   if (!isIOS) { fullscreen(!fullscreen()); } 
-  else { alert("Safari: 'Teilen' -> 'Zum Home-Bildschirm'!"); }
+  else { alert("iPhone: Safari 'Teilen' -> 'Zum Home-Bildschirm'!"); }
 }
 
 function resetGame() {
@@ -116,6 +116,7 @@ function generateLevel() {
   platforms.push({x: bridgeX, y: height - 160, w: 600, h: 40});
   let finalX = bridgeX + 750; 
   platforms.push({x: finalX, y: height - 180, w: 1200, h: 60});
+  // Das Portal
   platforms.push({x: finalX + 700, y: height - 380, w: 200, h: 200, isPortal: true});
   levelWidth = finalX + 1300;
 }
@@ -125,9 +126,11 @@ function draw() {
   if (gameState === "START") { drawMenu(); } else {
     if (gameState === "PLAY") updateGame();
     
-    // Wenn gewonnen, Figur schrumpfen lassen
+    // WIN-ANIMATION: Stoppen und Schrumpfen
     if (gameState === "WIN") {
-      playerScale = lerp(playerScale, 0, 0.1);
+      playerScale = lerp(playerScale, 0, 0.15);
+      // Den Brawler sanft in die Mitte des Mundes ziehen
+      player.velocity = 0;
     }
 
     push();
@@ -141,7 +144,6 @@ function draw() {
       }
     }
     
-    // Brawler zeichnen (mit Schrumpf-Effekt)
     if (playerImg && playerScale > 0.01) {
       push();
       translate(player.x + player.w/2, player.y + player.h/2);
@@ -160,6 +162,7 @@ function draw() {
 function updateGame() {
   timer -= 1/60;
   if (timer <= 0) gameState = "GAMEOVER";
+  
   player.x += player.speed;
   scrollX = player.x - 150; 
   player.velocity += player.gravity;
@@ -171,10 +174,14 @@ function updateGame() {
         player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.velocity) {
       
       if (p.isPortal) {
-        // Erst Gewinnen, wenn der Brawler in der Mitte des Gesichts ist
-        if (player.x > p.x + 70) {
-          gameState = "WIN"; 
-          createConfetti(p.x + 100, p.y + 150);
+        // DER FIX: Wenn in der Mitte des Gesichts, Bewegung stoppen!
+        if (player.x > p.x + 60) {
+          player.x = p.x + 70; // Festnageln
+          player.speed = 0;    // Vorwärtsdrang stoppen
+          if (gameState !== "WIN") {
+             gameState = "WIN"; 
+             createConfetti(p.x + 100, p.y + 150);
+          }
         }
       } else {
         player.y = p.y - player.h; player.velocity = 0; onGround = true;
@@ -234,14 +241,12 @@ function drawPortal(x, y) {
   if (portalImg) {
     image(portalImg, x, y, 200, 200);
     fill(40, 0, 0); noStroke();
-    ellipse(x + 100, y + 155, 60, 30); // Etwas breiterer Mund-Hintergrund
+    ellipse(x + 100, y + 155, 60, 30); 
     
-    // Zungen-Animation (Breiter & Wackelnd)
     let tongueLen = map(sin(frameCount * 0.12), -1, 1, 15, 65);
-    let tongueWobble = sin(frameCount * 0.2) * 5; // Kleiner Wackler zur Seite
+    let tongueWobble = sin(frameCount * 0.2) * 5; 
     
     fill(255, 100, 130); 
-    // Zunge ist jetzt 50px breit (vorher 30)
     rect(x + 75 + tongueWobble, y + 155, 50, tongueLen, 20);
     
     stroke(200, 60, 80); strokeWeight(3);
