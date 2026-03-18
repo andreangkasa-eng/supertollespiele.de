@@ -10,7 +10,7 @@ let scrollX = 0;
 let levelWidth = 15000;
 let onGround = false;
 let playerScale = 1.0; 
-let goalX = 0; // Neu: Die exakte Ziellinie
+let goalX = 0; 
 
 let btnStart, btnFS, btnRetry, btnJumpOverlay;
 
@@ -104,27 +104,34 @@ function resetGame() {
 }
 
 function generateLevel() {
+  // 1. Start-Bereich
   platforms.push({x: 0, y: height - 110, w: 1000, h: 60});
+  
   let currentX = 1100;
   let currentY = height - 150;
-  while (currentX < levelWidth - 2500) {
-    let pWidth = random(280, 500);
-    currentY = constrain(currentY + random(-90, 90), height - 250, height - 120);
+  
+  // 2. Mittel-Teil (FAIRE LÜCKEN)
+  while (currentX < levelWidth - 3500) {
+    let pWidth = random(300, 550);
+    currentY = constrain(currentY + random(-80, 80), height - 250, height - 120);
     platforms.push({x: currentX, y: currentY, w: pWidth, h: 35});
-    currentX += pWidth + random(180, 260);
+    // Lücke ist jetzt max 200 Pixel (vorher 260+)
+    currentX += pWidth + random(140, 200); 
   }
   
-  // Die finale Plattform
-  let finalX = currentX + 400;
-  platforms.push({x: finalX, y: height - 180, w: 2000, h: 60});
+  // 3. SICHERE ÜBERLEITUNG ZUM FINALE
+  platforms.push({x: currentX, y: height - 160, w: 800, h: 40});
+  currentX += 800 + 150; // Ganz kleiner Sprung (150px)
   
-  // Die exakte Ziellinie (Mitte des Gesichts)
-  goalX = finalX + 800; 
+  // 4. DIE RIESIGE LANDEBAHN (4000 Pixel lang)
+  let finalRunwayX = currentX;
+  platforms.push({x: finalRunwayX, y: height - 180, w: 4000, h: 60});
   
-  // Das Portal-Gesicht
+  // 5. DAS ZIEL (liegt sicher auf der Landebahn)
+  goalX = finalRunwayX + 1000; 
   platforms.push({x: goalX - 100, y: height - 380, w: 200, h: 200, isPortal: true});
   
-  levelWidth = finalX + 2000;
+  levelWidth = finalRunwayX + 4000;
 }
 
 function draw() {
@@ -133,27 +140,19 @@ function draw() {
   if (gameState === "START") { 
     drawMenu(); 
   } else {
-    // NUR UPDATEN WENN WIR NOCH SPIELEN
     if (gameState === "PLAY") {
       updateGame();
-      
-      // DER ULTIMATIVE CHECK: Ziellinie überschritten?
-      if (player.x > goalX) {
-        handleWin();
-      }
+      if (player.x > goalX) handleWin();
     }
     
-    // WIN-ANIMATION
     if (gameState === "WIN") {
       playerScale = lerp(playerScale, 0, 0.12);
-      player.velocity = 0;
-      player.speed = 0;
+      player.velocity = 0; player.speed = 0;
     }
 
     push();
     translate(-scrollX, 0); 
     drawClouds(); drawSpikes();
-    
     for (let p of platforms) {
       if (p.isPortal) drawPortal(p.x, p.y);
       else { 
@@ -162,7 +161,6 @@ function draw() {
       }
     }
     
-    // Brawler zeichnen
     if (playerImg && playerScale > 0.01) {
       push();
       translate(player.x + player.w/2, player.y + player.h/2);
@@ -170,7 +168,6 @@ function draw() {
       image(playerImg, -player.w/2, -player.h/2, player.w, player.h);
       pop();
     }
-    
     drawConfetti();
     pop();
     drawUI();
@@ -180,10 +177,8 @@ function draw() {
 function handleWin() {
   if (gameState !== "WIN") {
     gameState = "WIN";
-    player.speed = 0;
-    player.velocity = 0;
-    player.x = goalX; // Exakt auf die Zunge setzen
-    player.y = height - 180 - 60; // Auf die Höhe der Plattform
+    player.speed = 0; player.velocity = 0;
+    player.x = goalX; player.y = height - 180 - 60;
     createConfetti(goalX + 100, height - 250);
     updateUIState();
   }
@@ -200,7 +195,7 @@ function updateGame() {
   onGround = false;
   
   for (let p of platforms) {
-    if (!p.isPortal) { // Nur mit echten Plattformen kollidieren
+    if (!p.isPortal) {
       if (player.x + player.w*0.6 > p.x && player.x + player.w*0.4 < p.x + p.w &&
           player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.velocity) {
         player.y = p.y - player.h; player.velocity = 0; onGround = true;
@@ -211,7 +206,10 @@ function updateGame() {
   if (player.y > height) {
     lives--;
     if (lives <= 0) { gameState = "GAMEOVER"; updateUIState(); }
-    else { player.x = 100; player.y = height - 170; player.velocity = 0; scrollX = 0; timer = 40; onGround = true; }
+    else { 
+      player.x = 100; player.y = height - 170; player.velocity = 0; 
+      scrollX = 0; timer = 40; onGround = true; 
+    }
   }
 }
 
