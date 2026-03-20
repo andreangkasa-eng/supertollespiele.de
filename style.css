@@ -2,7 +2,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background-color: rgb(40, 150, 255);
+  background-color: #050514; /* Dunkles Space-Blau/Schwarz statt Hellblau */
   height: 100vh;
   width: 100vw;
   position: fixed; /* Verhindert Wackeln auf dem iPhone */
@@ -10,4 +10,9 @@ html, body {
 
 canvas {
   display: block;
+}
+
+button {
+  user-select: none;
+  -webkit-touch-callout: none;
 }
