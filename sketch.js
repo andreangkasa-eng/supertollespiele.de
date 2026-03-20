@@ -21,7 +21,7 @@ function setup() {
   
   createElement('style', `canvas, button { touch-action: none !important; user-select: none !important; -webkit-tap-highlight-color: rgba(0,0,0,0); }`);
 
-  // BUTTONS
+  // BUTTONS ERSTELLEN
   btnStart = createButton('LEVEL 1 STARTEN'); styleButton(btnStart, height/2 + 30, '#32CD32');
   btnStart.mousePressed(() => { startGame(); });
 
@@ -37,10 +37,11 @@ function setup() {
   btnJumpOverlay = createButton('');
   btnJumpOverlay.position(0, 0); btnJumpOverlay.size(windowWidth, windowHeight);
   btnJumpOverlay.style('background', 'transparent'); btnJumpOverlay.style('border', 'none'); btnJumpOverlay.style('z-index', '10');
-  btnJumpOverlay.elt.addEventListener('touchstart', (e) => { e.preventDefault(); doAction(); }, {passive: false});
+  btnJumpOverlay.elt.addEventListener('touchstart', (e) => { 
+    if (gameState === "PLAY") { e.preventDefault(); doAction(); }
+  }, {passive: false});
   btnJumpOverlay.mousePressed(doAction);
 
-  // Sterne einmalig generieren
   for(let i=0; i<100; i++) stars.push({x: random(0, 2000), y: random(0, 1000), s: random(1, 3)});
 
   initLevel(1); 
@@ -51,7 +52,8 @@ function styleButton(btn, yPos, col) {
   btn.position(windowWidth/2 - 100, yPos);
   btn.size(200, 50);
   btn.style('background-color', col); btn.style('color', 'white'); btn.style('font-size', '16px'); btn.style('font-weight', 'bold');
-  btn.style('border-radius', '10px'); btn.style('border', '3px solid #000'); btn.style('z-index', '25');
+  btn.style('border-radius', '10px'); btn.style('border', '3px solid #000'); 
+  btn.style('z-index', '100'); // EXTREM HOCH, damit nichts drüber liegt
   btn.hide();
 }
 
@@ -66,11 +68,14 @@ function updateUIState() {
     btnJumpOverlay.show();
   } else if (gameState === "GAMEOVER") {
     btnRetry.show();
+    btnRetry.html("NOCHMAL VERSUCHEN");
   } else if (gameState === "WIN" && currentLevel === 1) {
-    // Nach Sieg in Level 1 kommt der "Next Level" Button
-    setTimeout(() => { btnNextLevel.show(); }, 2000);
+    // Nach Sieg in Level 1 erscheint der blaue Button
+    btnNextLevel.show();
   } else if (gameState === "WIN" && currentLevel === 2) {
-    setTimeout(() => { btnRetry.show(); btnRetry.html("ZURÜCK ZU LEVEL 1"); }, 2000);
+    // Nach Sieg in Level 2 zurück zum Anfang
+    btnRetry.show();
+    btnRetry.html("ZURÜCK ZU LEVEL 1");
   }
 }
 
@@ -168,11 +173,9 @@ function draw() {
 
 function drawSpaceBackground() {
   background(5, 5, 20);
-  // Nebel-Effekt
   noStroke();
-  fill(40, 0, 80, 40);
-  ellipse(width/2 + sin(frameCount*0.01)*100, height/2, width*1.5, height);
-  // Sterne
+  fill(60, 0, 120, 30); // Lila Nebel
+  ellipse(width/2, height/2, width*1.2, height*0.8);
   fill(255);
   for(let s of stars) {
     let sx = (s.x - scrollX*0.2) % width; if(sx < 0) sx += width;
@@ -201,9 +204,9 @@ function updateGame() {
     if (player.y < 0) { player.y = 0; player.velocity = 0; }
     ufoY = height/2 + sin(frameCount * 0.04) * (height * 0.35);
     
-    // Aggressivere Schüsse (alle 50 Frames)
     if (frameCount % 50 === 0) {
-      bullets.push({ x: player.x + width, y: ufoY + 40, speed: 6.5, offset: random(-80, 80) });
+      // Schüsse haben jetzt einen massiven Y-Versatz für mehr Zufall
+      bullets.push({ x: player.x + width, y: ufoY + 40, speed: 6.5, offset: random(-150, 150) });
     }
 
     for (let i = bullets.length - 1; i >= 0; i--) {
@@ -246,7 +249,7 @@ function drawLevel1Assets() {
 }
 
 function drawLevel2Assets() {
-  let ufoX = player.x + width - 400; // Weiter links
+  let ufoX = player.x + width - 400; 
   if (ufoImg) image(ufoImg, ufoX, ufoY - 60, 180, 120);
   fill(255, 255, 0);
   for (let b of bullets) rect(b.x, b.y + b.offset, 35, 6, 3);
@@ -284,7 +287,14 @@ function drawUI() {
   }
 }
 
-function windowResized() { resizeCanvas(windowWidth, windowHeight); }
-function drawClouds() { fill(255, 255, 255, 150); noStroke(); for(let c of clouds) ellipse(c.x, c.y, 70 * c.s, 40 * c.s); }
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  btnStart.position(windowWidth/2 - 100, height/2 + 30);
+  btnNextLevel.position(windowWidth/2 - 100, height/2 + 30);
+  btnFS.position(windowWidth/2 - 100, height/2 + 90);
+  btnRetry.position(windowWidth/2 - 100, height/2 + 30);
+  btnJumpOverlay.size(windowWidth, windowHeight);
+}
+
 function createConfetti(x, y) { for(let i=0; i<150; i++) particles.push({x: x, y: y, vx: random(-6, 6), vy: random(-10, -3), color: color(random(255), random(255), random(255))}); }
 function drawConfetti() { for (let part of particles) { fill(part.color); noStroke(); rect(part.x, part.y, 7, 7); part.x += part.vx; part.y += part.vy; part.vy += 0.15; } }
