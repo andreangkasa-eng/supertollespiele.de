@@ -1,19 +1,16 @@
 let playerImg, portalImg, portal2Img, ufoImg, bgMusic1, bgMusic2;
-let player, platforms = [], clouds = [], particles = [], bullets = [];
+let player, platforms = [], clouds = [], particles = [], bullets = [], stars = [];
 let lives = 3, timer = 40, gameState = "START", currentLevel = 1;
 let scrollX = 0, levelWidth = 15000, onGround = false, playerScale = 1.0, goalX = 0;
 
-let btnStart, btnFS, btnRetry, btnJumpOverlay;
+let btnStart, btnFS, btnRetry, btnNextLevel, btnJumpOverlay;
 let ufoY = 300;
 
 function preload() {
-  // Assets Level 1 & 2
   playerImg = loadImage('brawler.png');
   portalImg = loadImage('noa_portal.png');
   portal2Img = loadImage('portal2.png');
   ufoImg = loadImage('ufo.png');
-  
-  // Musik laden
   bgMusic1 = loadSound('musik.mp3');
   bgMusic2 = loadSound('musik2.mp3');
 }
@@ -22,17 +19,19 @@ function setup() {
   pixelDensity(1);
   createCanvas(windowWidth, windowHeight);
   
-  // Mobile Fix CSS
   createElement('style', `canvas, button { touch-action: none !important; user-select: none !important; -webkit-tap-highlight-color: rgba(0,0,0,0); }`);
 
-  // HTML Buttons (Einmalige Erstellung)
-  btnStart = createButton('SPIEL STARTEN'); styleButton(btnStart, height/2 + 20, '#32CD32');
-  btnStart.mousePressed(startGame);
+  // BUTTONS
+  btnStart = createButton('LEVEL 1 STARTEN'); styleButton(btnStart, height/2 + 30, '#32CD32');
+  btnStart.mousePressed(() => { startGame(); });
 
-  btnFS = createButton('FULLSCREEN'); styleButton(btnFS, height/2 + 85, '#888');
+  btnNextLevel = createButton('STARTE LEVEL 2'); styleButton(btnNextLevel, height/2 + 30, '#00BFFF');
+  btnNextLevel.mousePressed(() => { currentLevel = 2; resetToStart(); });
+
+  btnFS = createButton('FULLSCREEN'); styleButton(btnFS, height/2 + 90, '#888');
   btnFS.mousePressed(toggleFS);
 
-  btnRetry = createButton('RETRY'); styleButton(btnRetry, height/2 + 40, '#FF4500');
+  btnRetry = createButton('NOCHMAL VERSUCHEN'); styleButton(btnRetry, height/2 + 30, '#FF4500');
   btnRetry.mousePressed(resetToStart);
 
   btnJumpOverlay = createButton('');
@@ -41,24 +40,37 @@ function setup() {
   btnJumpOverlay.elt.addEventListener('touchstart', (e) => { e.preventDefault(); doAction(); }, {passive: false});
   btnJumpOverlay.mousePressed(doAction);
 
+  // Sterne einmalig generieren
+  for(let i=0; i<100; i++) stars.push({x: random(0, 2000), y: random(0, 1000), s: random(1, 3)});
+
   initLevel(1); 
   updateUIState();
 }
 
 function styleButton(btn, yPos, col) {
-  btn.position(windowWidth/2 - 90, yPos);
-  btn.size(180, 45);
+  btn.position(windowWidth/2 - 100, yPos);
+  btn.size(200, 50);
   btn.style('background-color', col); btn.style('color', 'white'); btn.style('font-size', '16px'); btn.style('font-weight', 'bold');
-  btn.style('border-radius', '10px'); btn.style('border', '3px solid #000'); btn.style('z-index', '20');
+  btn.style('border-radius', '10px'); btn.style('border', '3px solid #000'); btn.style('z-index', '25');
+  btn.hide();
 }
 
 function updateUIState() {
+  btnStart.hide(); btnNextLevel.hide(); btnRetry.hide(); btnFS.hide(); btnJumpOverlay.hide();
+  
   if (gameState === "START") {
-    btnStart.show(); btnFS.show(); btnRetry.hide(); btnJumpOverlay.hide();
+    btnFS.show();
+    if (currentLevel === 1) btnStart.show();
+    else btnNextLevel.show();
   } else if (gameState === "PLAY") {
-    btnStart.hide(); btnFS.hide(); btnRetry.hide(); btnJumpOverlay.show();
-  } else {
-    btnStart.hide(); btnFS.hide(); btnRetry.show(); btnJumpOverlay.hide();
+    btnJumpOverlay.show();
+  } else if (gameState === "GAMEOVER") {
+    btnRetry.show();
+  } else if (gameState === "WIN" && currentLevel === 1) {
+    // Nach Sieg in Level 1 kommt der "Next Level" Button
+    setTimeout(() => { btnNextLevel.show(); }, 2000);
+  } else if (gameState === "WIN" && currentLevel === 2) {
+    setTimeout(() => { btnRetry.show(); btnRetry.html("ZURÜCK ZU LEVEL 1"); }, 2000);
   }
 }
 
@@ -69,13 +81,13 @@ function startGame() {
 }
 
 function playMusic() {
-  if (bgMusic1) bgMusic1.stop();
-  if (bgMusic2) bgMusic2.stop();
+  if (bgMusic1) bgMusic1.stop(); if (bgMusic2) bgMusic2.stop();
   if (currentLevel === 1 && bgMusic1) { bgMusic1.loop(); bgMusic1.setVolume(0.4); }
   if (currentLevel === 2 && bgMusic2) { bgMusic2.loop(); bgMusic2.setVolume(0.4); }
 }
 
 function resetToStart() { 
+  if (btnRetry.html() === "ZURÜCK ZU LEVEL 1") currentLevel = 1;
   initLevel(currentLevel); 
   gameState = "START"; 
   updateUIState(); 
@@ -83,22 +95,16 @@ function resetToStart() {
 
 function doAction() {
   if (gameState === "PLAY") {
-    if (currentLevel === 1 && onGround) {
-      player.velocity = player.jumpStrength;
-      onGround = false;
-    } else if (currentLevel === 2) {
-      player.velocity = player.jumpStrength;
-    }
+    player.velocity = player.jumpStrength;
+    if (currentLevel === 1) onGround = false;
   }
 }
 
 function toggleFS() {
   let isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  if (!isIOS) { fullscreen(!fullscreen()); } 
-  else { alert("Safari: 'Teilen' -> 'Zum Home-Bildschirm'!"); }
+  if (!isIOS) { fullscreen(!fullscreen()); } else { alert("Safari: 'Teilen' -> 'Zum Home-Bildschirm'!"); }
 }
 
-// --- LEVEL INITIALISIERUNG ---
 function initLevel(lvl) {
   currentLevel = lvl;
   playerScale = 1.0;
@@ -110,7 +116,7 @@ function initLevel(lvl) {
     generateLevel1();
     for(let i=0; i<25; i++) clouds.push({x: random(0, 15000), y: random(10, 80), s: random(0.6, 1.2)});
   } else {
-    player = { x: 100, y: height/2, w: 60, h: 60, velocity: 0, gravity: 0.4, jumpStrength: -9.5, speed: 7.2 };
+    player = { x: 100, y: height/2, w: 60, h: 60, velocity: 0, gravity: 0.4, jumpStrength: -9.5, speed: 7.5 };
     levelWidth = 16000;
     goalX = levelWidth;
   }
@@ -132,14 +138,15 @@ function generateLevel1() {
 }
 
 function draw() {
-  background(currentLevel === 1 ? color(40, 150, 255) : color(5, 10, 35)); 
+  if (currentLevel === 1) background(40, 150, 255);
+  else drawSpaceBackground();
 
   if (gameState === "PLAY") {
     updateGame();
     if (player.x > goalX) handleWin();
   }
   
-  if (gameState === "WIN") { playerScale = lerp(playerScale, 0, 0.1); }
+  if (gameState === "WIN") { playerScale = lerp(playerScale, 0, 0.1); player.speed = 0; player.velocity = 0; }
 
   push();
   translate(-scrollX, 0); 
@@ -150,28 +157,38 @@ function draw() {
     drawLevel2Assets();
   }
 
-  // Brawler zeichnen
   if (playerImg && playerScale > 0.01) {
     push(); translate(player.x + player.w/2, player.y + player.h/2); scale(playerScale);
     image(playerImg, -player.w/2, -player.h/2, player.w, player.h); pop();
   }
   
-  drawConfetti();
-  pop();
+  drawConfetti(); pop();
   drawUI();
+}
+
+function drawSpaceBackground() {
+  background(5, 5, 20);
+  // Nebel-Effekt
+  noStroke();
+  fill(40, 0, 80, 40);
+  ellipse(width/2 + sin(frameCount*0.01)*100, height/2, width*1.5, height);
+  // Sterne
+  fill(255);
+  for(let s of stars) {
+    let sx = (s.x - scrollX*0.2) % width; if(sx < 0) sx += width;
+    ellipse(sx, s.y, s.s, s.s);
+  }
 }
 
 function updateGame() {
   timer -= 1/60;
   if (timer <= 0) { gameState = "GAMEOVER"; updateUIState(); return; }
-  
   player.x += player.speed;
   scrollX = player.x - 150; 
   player.velocity += player.gravity;
   player.y += player.velocity;
 
   if (currentLevel === 1) {
-    // Level 1 Logik
     onGround = false;
     for (let p of platforms) {
       if (player.x + player.w*0.6 > p.x && player.x + player.w*0.4 < p.x + p.w &&
@@ -181,18 +198,17 @@ function updateGame() {
     }
     if (player.y > height) die();
   } else {
-    // Level 2 Logik
     if (player.y < 0) { player.y = 0; player.velocity = 0; }
     ufoY = height/2 + sin(frameCount * 0.04) * (height * 0.35);
     
-    // Schuss-Logik
-    if (frameCount % 80 === 0) {
-      bullets.push({ x: player.x + width, y: ufoY + 20, speed: 5.5, offset: random(-15, 15) });
+    // Aggressivere Schüsse (alle 50 Frames)
+    if (frameCount % 50 === 0) {
+      bullets.push({ x: player.x + width, y: ufoY + 40, speed: 6.5, offset: random(-80, 80) });
     }
 
     for (let i = bullets.length - 1; i >= 0; i--) {
       bullets[i].x -= bullets[i].speed;
-      let bY = bullets[i].y + bullets[i].offset; // Der Zufalls-Offset
+      let bY = bullets[i].y + bullets[i].offset;
       if (bullets[i].x < player.x + player.w && bullets[i].x + 35 > player.x &&
           bY < player.y + player.h && bY + 6 > player.y) {
         bullets.splice(i, 1); die();
@@ -206,8 +222,7 @@ function die() {
   lives--;
   if (lives <= 0) { gameState = "GAMEOVER"; updateUIState(); }
   else { 
-    player.x = 100; 
-    player.y = (currentLevel === 1) ? height - 170 : height/2;
+    player.x = 100; player.y = (currentLevel === 1) ? height - 170 : height/2;
     player.velocity = 0; scrollX = 0; timer = 40;
   }
 }
@@ -215,51 +230,40 @@ function die() {
 function handleWin() {
   if (gameState !== "WIN") {
     gameState = "WIN";
-    player.speed = 0; player.velocity = 0;
     createConfetti(player.x + 50, player.y + 30);
     updateUIState();
-    setTimeout(() => {
-      if (currentLevel === 1) { initLevel(2); gameState = "START"; updateUIState(); playMusic(); }
-      else { initLevel(1); gameState = "START"; updateUIState(); playMusic(); }
-    }, 3000);
   }
 }
 
 function drawLevel1Assets() {
   drawClouds();
-  // Spikes
   fill(60); noStroke(); for (let i = scrollX - 100; i < scrollX + width + 100; i += 40) triangle(i, height, i + 20, height - 30, i + 40, height);
-  // Plattformen
   for (let p of platforms) {
     fill(139, 69, 19); rect(p.x, p.y, p.w, p.h, 8); 
     fill(124, 252, 0); rect(p.x, p.y, p.w, 10, 8); 
   }
-  // Portal
-  if (portalImg) image(portalImg, goalX - 100, height - 380, 200, 200);
+  if (portalImg) drawPortal(goalX - 100, height - 380, portalImg);
 }
 
 function drawLevel2Assets() {
-  // Sterne
-  fill(255); noStroke();
-  for (let i = 0; i < 60; i++) {
-    let starX = floor((scrollX + i * 400) / 20000) * 20000 + (i * 337) % 2500;
-    ellipse(starX, (i * 157) % height, 2, 2);
-  }
-  // UFO
-  let ufoX = player.x + width - 250;
+  let ufoX = player.x + width - 400; // Weiter links
   if (ufoImg) image(ufoImg, ufoX, ufoY - 60, 180, 120);
-  // Bullets
   fill(255, 255, 0);
   for (let b of bullets) rect(b.x, b.y + b.offset, 35, 6, 3);
-  // Portal
-  if (portal2Img) image(portal2Img, levelWidth, height/2 - 120, 240, 240);
+  if (portal2Img) drawPortal(levelWidth, height/2 - 120, portal2Img);
+}
+
+function drawPortal(x, y, img) {
+  image(img, x, y, 200, 200);
+  fill(40, 0, 0); noStroke(); ellipse(x + 100, y + 155, 60, 30); 
+  let tongueLen = map(sin(frameCount * 0.12), -1, 1, 15, 65);
+  fill(255, 100, 130); rect(x + 75 + sin(frameCount * 0.2) * 5, y + 155, 54, tongueLen, 20);
 }
 
 function drawUI() {
   textAlign(LEFT, TOP);
   let hearts = ""; for(let i=0; i<lives; i++) hearts += "❤️";
-  fill(255); noStroke(); 
-  textSize(24); text(hearts, 20, 15);
+  noStroke(); fill(255); textSize(24); text(hearts, 20, 15);
   textSize(18); text("TIME: " + ceil(timer) + "s", 20, 45);
   textAlign(RIGHT, TOP); text("LEVEL " + currentLevel, width - 20, 15);
 
@@ -267,7 +271,8 @@ function drawUI() {
     fill(0, 180); rect(0, 0, width, height);
     textAlign(CENTER, CENTER);
     fill(200); textSize(16); text("Noa Productions präsentiert:", width/2, height/2 - 100);
-    fill(255, 204, 0); textSize(40); textStyle(BOLD); text("BLOCK SPRINGER", width/2, height/2 - 55);
+    fill(255, 204, 0); textSize(40); textStyle(BOLD); 
+    text("LEVEL " + currentLevel + (currentLevel === 1 ? ": DIE WIESE" : ": WELTRAUM"), width/2, height/2 - 55);
   }
   if (gameState === "GAMEOVER") {
     fill(0, 200); rect(0, 0, width, height);
@@ -275,7 +280,7 @@ function drawUI() {
   }
   if (gameState === "WIN") {
     fill(0, 200); rect(0, 0, width, height);
-    textAlign(CENTER, CENTER); textSize(40); fill(50, 255, 50); text("LEVEL COMPLETE!", width/2, height/2 - 40);
+    textAlign(CENTER, CENTER); textSize(40); fill(50, 255, 50); text("LEVEL " + currentLevel + " COMPLETE!", width/2, height/2 - 40);
   }
 }
 
