@@ -19,23 +19,27 @@ function setup() {
   createCanvas(windowWidth, windowHeight);
   createElement('style', `canvas, button { touch-action: none !important; user-select: none !important; -webkit-tap-highlight-color: rgba(0,0,0,0); }`);
 
-  btnStart = createButton('LEVEL 1 STARTEN'); styleButton(btnStart, height/2 + 30, '#32CD32');
-  btnStart.mousePressed(() => { startGame(); });
+  // BUTTONS INITIALISIEREN
+  btnStart = createButton('START GAME'); styleButton(btnStart, height/2 + 20, '#32CD32');
+  btnStart.mousePressed(startGame);
+  btnStart.elt.addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); });
 
-  btnNextLevel = createButton('STARTE LEVEL 2'); styleButton(btnNextLevel, height/2 + 30, '#00BFFF');
-  btnNextLevel.mousePressed(() => { currentLevel = 2; resetToStart(); });
+  btnNextLevel = createButton('WEITER ZU LEVEL 2'); styleButton(btnNextLevel, height/2 + 20, '#00BFFF');
+  btnNextLevel.mousePressed(goToLevel2);
+  btnNextLevel.elt.addEventListener('touchstart', (e) => { e.preventDefault(); goToLevel2(); });
 
-  btnFS = createButton('FULLSCREEN'); styleButton(btnFS, height/2 + 90, '#888');
+  btnFS = createButton('FULLSCREEN'); styleButton(btnFS, height/2 + 85, '#888');
   btnFS.mousePressed(toggleFS);
 
-  btnRetry = createButton('NOCHMAL VERSUCHEN'); styleButton(btnRetry, height/2 + 30, '#FF4500');
+  btnRetry = createButton('NOCHMAL VERSUCHEN'); styleButton(btnRetry, height/2 + 20, '#FF4500');
   btnRetry.mousePressed(resetToStart);
+  btnRetry.elt.addEventListener('touchstart', (e) => { e.preventDefault(); resetToStart(); });
 
   btnJumpOverlay = createButton('');
   btnJumpOverlay.position(0, 0); btnJumpOverlay.size(windowWidth, windowHeight);
   btnJumpOverlay.style('background', 'transparent'); btnJumpOverlay.style('border', 'none'); 
-  btnJumpOverlay.style('z-index', '10'); // Jump-Overlay bleibt unten
-  btnJumpOverlay.elt.addEventListener('touchstart', (e) => { e.preventDefault(); doAction(); }, {passive: false});
+  btnJumpOverlay.style('z-index', '10');
+  btnJumpOverlay.elt.addEventListener('touchstart', (e) => { if(gameState === "PLAY") { e.preventDefault(); doAction(); } }, {passive: false});
   btnJumpOverlay.mousePressed(doAction);
 
   for(let i=0; i<100; i++) stars.push({x: random(0, 2000), y: random(0, 1000), s: random(1, 3)});
@@ -48,40 +52,41 @@ function styleButton(btn, yPos, col) {
   btn.size(200, 50);
   btn.style('background-color', col); btn.style('color', 'white'); btn.style('font-size', '16px'); btn.style('font-weight', 'bold');
   btn.style('border-radius', '10px'); btn.style('border', '3px solid #000'); 
-  btn.style('z-index', '1000'); // FIX: Sehr hoher z-index für echte Klicks
+  btn.style('z-index', '1000'); // Immer ganz oben
   btn.hide();
 }
 
 function updateUIState() {
-  // Zuerst ALLES verstecken
   btnStart.hide(); btnNextLevel.hide(); btnRetry.hide(); btnFS.hide(); btnJumpOverlay.hide();
   
   if (gameState === "START") {
     btnFS.show();
-    if (currentLevel === 1) btnStart.show(); else btnNextLevel.show();
+    // Dynamischer Text für den Start-Button je nach Level
+    btnStart.html(currentLevel === 1 ? "LEVEL 1 STARTEN" : "LEVEL 2 STARTEN");
+    btnStart.show();
   } else if (gameState === "PLAY") {
     btnJumpOverlay.show();
   } else if (gameState === "GAMEOVER") {
     btnRetry.show();
   } else if (gameState === "WIN") {
-    // Jump-Overlay explizit weg, damit Buttons klickbar werden
-    btnJumpOverlay.hide(); 
-    if (currentLevel === 1) btnNextLevel.show();
+    if (currentLevel === 1) btnNextLevel.show(); // Button A
     else { btnRetry.show(); btnRetry.html("ZURÜCK ZU LEVEL 1"); }
   }
 }
 
 function startGame() { gameState = "PLAY"; updateUIState(); playMusic(); }
 
-function playMusic() {
-  if (bgMusic1) bgMusic1.stop(); if (bgMusic2) bgMusic2.stop();
-  if (currentLevel === 1 && bgMusic1) { bgMusic1.loop(); bgMusic1.setVolume(0.4); }
-  if (currentLevel === 2 && bgMusic2) { bgMusic2.loop(); bgMusic2.setVolume(0.4); }
-}
+function goToLevel2() { currentLevel = 2; initLevel(2); gameState = "START"; updateUIState(); }
 
 function resetToStart() { 
   if (btnRetry.html() === "ZURÜCK ZU LEVEL 1") currentLevel = 1;
   initLevel(currentLevel); gameState = "START"; updateUIState(); 
+}
+
+function playMusic() {
+  if (bgMusic1) bgMusic1.stop(); if (bgMusic2) bgMusic2.stop();
+  if (currentLevel === 1 && bgMusic1) { bgMusic1.loop(); bgMusic1.setVolume(0.4); }
+  if (currentLevel === 2 && bgMusic2) { bgMusic2.loop(); bgMusic2.setVolume(0.4); }
 }
 
 function doAction() { if (gameState === "PLAY") { player.velocity = player.jumpStrength; if (currentLevel === 1) onGround = false; } }
@@ -158,9 +163,7 @@ function die() { lives--; if (lives <= 0) { gameState = "GAMEOVER"; updateUIStat
 function handleWin() { if (gameState !== "WIN") { gameState = "WIN"; createConfetti(player.x + 50, player.y + 30); updateUIState(); } }
 
 function drawLevel1Assets() { drawClouds(); fill(60); noStroke(); for (let i = scrollX - 100; i < scrollX + width + 100; i += 40) triangle(i, height, i + 20, height - 30, i + 40, height); for (let p of platforms) { fill(139, 69, 19); rect(p.x, p.y, p.w, p.h, 8); fill(124, 252, 0); rect(p.x, p.y, p.w, 10, 8); } if (portalImg) drawPortal(goalX - 100, height - 380, portalImg); }
-
 function drawLevel2Assets() { let ufoX = player.x + width - 400; if (ufoImg) image(ufoImg, ufoX, ufoY - 60, 180, 120); fill(255, 255, 0); for (let b of bullets) rect(b.x, b.y + b.offset, 35, 6, 3); if (portal2Img) drawPortal(levelWidth, height/2 - 120, portal2Img); }
-
 function drawPortal(x, y, img) { image(img, x, y, 200, 200); fill(40, 0, 0); noStroke(); ellipse(x + 100, y + 155, 60, 30); let tongueLen = map(sin(frameCount * 0.12), -1, 1, 15, 65); fill(255, 100, 130); rect(x + 75 + sin(frameCount * 0.2) * 5, y + 155, 54, tongueLen, 20); }
 
 function drawUI() {
@@ -171,7 +174,7 @@ function drawUI() {
   if (gameState === "WIN") { fill(0, 200); rect(0, 0, width, height); textAlign(CENTER, CENTER); textSize(40); fill(50, 255, 50); text("LEVEL " + currentLevel + " COMPLETE!", width/2, height/2 - 40); }
 }
 
-function windowResized() { resizeCanvas(windowWidth, windowHeight); }
+function windowResized() { resizeCanvas(windowWidth, windowHeight); updateUIState(); }
 function drawClouds() { fill(255, 255, 255, 150); noStroke(); for(let c of clouds) ellipse(c.x, c.y, 70 * c.s, 40 * c.s); }
 function createConfetti(x, y) { for(let i=0; i<150; i++) particles.push({x: x, y: y, vx: random(-6, 6), vy: random(-10, -3), color: color(random(255), random(255), random(255))}); }
 function drawConfetti() { for (let part of particles) { fill(part.color); noStroke(); rect(part.x, part.y, 7, 7); part.x += part.vx; part.y += part.vy; part.vy += 0.15; } }
