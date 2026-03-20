@@ -68,17 +68,9 @@ function updateUIState() {
   }
 }
 
-function startGame() { 
-  userStartAudio(); // Schaltet Audio für Mobile frei
-  gameState = "PLAY"; updateUIState(); playMusic(); 
-}
-
+function startGame() { userStartAudio(); gameState = "PLAY"; updateUIState(); playMusic(); }
 function goToLevel2() { userStartAudio(); currentLevel = 2; initLevel(2); gameState = "START"; updateUIState(); }
-
-function resetToStart() { 
-  if (btnRetry.html() === "ZURÜCK ZU LEVEL 1") currentLevel = 1;
-  initLevel(currentLevel); gameState = "START"; updateUIState(); 
-}
+function resetToStart() { if (btnRetry.html() === "ZURÜCK ZU LEVEL 1") currentLevel = 1; initLevel(currentLevel); gameState = "START"; updateUIState(); }
 
 function playMusic() {
   if (bgMusic1) bgMusic1.stop(); if (bgMusic2) bgMusic2.stop();
@@ -88,11 +80,8 @@ function playMusic() {
 
 function doAction() { 
   if (gameState === "PLAY") { 
-    if (currentLevel === 1) {
-      if (onGround) { player.velocity = player.jumpStrength; onGround = false; }
-    } else {
-      player.velocity = player.jumpStrength; 
-    }
+    if (currentLevel === 1) { if (onGround) { player.velocity = player.jumpStrength; onGround = false; } } 
+    else { player.velocity = player.jumpStrength; }
   } 
 }
 
@@ -105,7 +94,8 @@ function initLevel(lvl) {
     generateLevel1();
     for(let i=0; i<25; i++) clouds.push({x: random(0, 15000), y: random(10, 80), s: random(0.6, 1.2)});
   } else {
-    player = { x: 100, y: height/2, w: 60, h: 60, velocity: 0, gravity: 0.4, jumpStrength: -9.5, speed: 7.5 };
+    // FIX: Leichter Start-Auftrieb für Level 2
+    player = { x: 100, y: height/2, w: 60, h: 60, velocity: -3, gravity: 0.4, jumpStrength: -9.5, speed: 7.5 };
     levelWidth = 16000; goalX = levelWidth;
   }
 }
@@ -142,7 +132,15 @@ function drawSpaceBackground() {
 
 function updateGame() {
   timer -= 1/60; if (timer <= 0) { gameState = "GAMEOVER"; updateUIState(); return; }
-  player.x += player.speed; scrollX = player.x - 150; player.velocity += player.gravity; player.y += player.velocity;
+  player.x += player.speed; scrollX = player.x - 150; 
+  
+  // FIX: Schwerkraft-Bremse für die ersten 1,5 Sekunden in Level 2
+  let gravityPower = player.gravity;
+  if (currentLevel === 2 && timer > 38.5) gravityPower *= 0.2;
+  
+  player.velocity += gravityPower;
+  player.y += player.velocity;
+
   if (currentLevel === 1) {
     onGround = false;
     for (let p of platforms) { if (player.x + player.w*0.6 > p.x && player.x + player.w*0.4 < p.x + p.w && player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.velocity) { player.y = p.y - player.h; player.velocity = 0; onGround = true; } }
@@ -150,7 +148,11 @@ function updateGame() {
   } else {
     if (player.y < 0) { player.y = 0; player.velocity = 0; }
     ufoY = height/2 + sin(frameCount * 0.04) * (height * 0.35);
-    if (frameCount % 50 === 0) bullets.push({ x: player.x + width, y: ufoY + 40, speed: 6.5, offset: random(-120, 120) });
+    
+    // UFO wartet ebenfalls 1,5 Sekunden mit dem Schießen
+    if (frameCount % 50 === 0 && timer < 38.5) {
+      bullets.push({ x: player.x + width, y: ufoY + 40, speed: 6.5, offset: random(-120, 120) });
+    }
     for (let i = bullets.length - 1; i >= 0; i--) {
       bullets[i].x -= bullets[i].speed; let bY = bullets[i].y + bullets[i].offset;
       if (bullets[i].x < player.x + player.w && bullets[i].x + 35 > player.x && bY < player.y + player.h && bY + 6 > player.y) { bullets.splice(i, 1); die(); }
@@ -160,7 +162,7 @@ function updateGame() {
   }
 }
 
-function die() { lives--; if (lives <= 0) { gameState = "GAMEOVER"; updateUIState(); } else { player.x = 100; player.y = (currentLevel === 1) ? height - 170 : height/2; player.velocity = 0; scrollX = 0; timer = 40; } }
+function die() { lives--; if (lives <= 0) { gameState = "GAMEOVER"; updateUIState(); } else { player.x = 100; player.y = (currentLevel === 1) ? height - 170 : height/2; player.velocity = (currentLevel === 2) ? -3 : 0; scrollX = 0; timer = 40; } }
 function handleWin() { if (gameState !== "WIN") { gameState = "WIN"; createConfetti(player.x + 50, player.y + 30); updateUIState(); } }
 function drawLevel1Assets() { drawClouds(); fill(60); noStroke(); for (let i = scrollX - 100; i < scrollX + width + 100; i += 40) triangle(i, height, i + 20, height - 30, i + 40, height); for (let p of platforms) { fill(139, 69, 19); rect(p.x, p.y, p.w, p.h, 8); fill(124, 252, 0); rect(p.x, p.y, p.w, 10, 8); } if (portalImg) drawPortal(goalX - 100, height - 380, portalImg); }
 function drawLevel2Assets() { let ufoX = player.x + width - 400; if (ufoImg) image(ufoImg, ufoX, ufoY - 60, 180, 120); fill(255, 255, 0); for (let b of bullets) rect(b.x, b.y + b.offset, 35, 6, 3); if (portal2Img) drawPortal(levelWidth, height/2 - 120, portal2Img); }
@@ -169,7 +171,7 @@ function drawPortal(x, y, img) {
   image(img, x, y, 200, 200); fill(40, 0, 0); noStroke(); ellipse(x + 100, y + 155, 60, 30); 
   let tx = x + 75 + sin(frameCount * 0.2) * 5; let tongueLen = map(sin(frameCount * 0.12), -1, 1, 15, 65);
   fill(255, 100, 130); rect(tx, y + 155, 54, tongueLen, 20);
-  stroke(200, 60, 80); strokeWeight(2); line(tx + 27, y + 155, tx + 27, y + 155 + tongueLen * 0.7); noStroke();
+  stroke(200, 80, 100); strokeWeight(2); line(tx + 27, y + 155, tx + 27, y + 155 + tongueLen * 0.7); noStroke();
 }
 
 function drawUI() {
