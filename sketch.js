@@ -94,7 +94,6 @@ function initLevel(lvl) {
     generateLevel1();
     for(let i=0; i<25; i++) clouds.push({x: random(0, 15000), y: random(10, 80), s: random(0.6, 1.2)});
   } else {
-    // FIX: Leichter Start-Auftrieb für Level 2
     player = { x: 100, y: height/2, w: 60, h: 60, velocity: -3, gravity: 0.4, jumpStrength: -9.5, speed: 7.5 };
     levelWidth = 16000; goalX = levelWidth;
   }
@@ -133,13 +132,9 @@ function drawSpaceBackground() {
 function updateGame() {
   timer -= 1/60; if (timer <= 0) { gameState = "GAMEOVER"; updateUIState(); return; }
   player.x += player.speed; scrollX = player.x - 150; 
-  
-  // FIX: Schwerkraft-Bremse für die ersten 1,5 Sekunden in Level 2
   let gravityPower = player.gravity;
   if (currentLevel === 2 && timer > 38.5) gravityPower *= 0.2;
-  
-  player.velocity += gravityPower;
-  player.y += player.velocity;
+  player.velocity += gravityPower; player.y += player.velocity;
 
   if (currentLevel === 1) {
     onGround = false;
@@ -149,9 +144,9 @@ function updateGame() {
     if (player.y < 0) { player.y = 0; player.velocity = 0; }
     ufoY = height/2 + sin(frameCount * 0.04) * (height * 0.35);
     
-    // UFO wartet ebenfalls 1,5 Sekunden mit dem Schießen
+    // FIX: Schüsse starten an der UFO-Position (player.x + width - 400)
     if (frameCount % 50 === 0 && timer < 38.5) {
-      bullets.push({ x: player.x + width, y: ufoY + 40, speed: 6.5, offset: random(-120, 120) });
+      bullets.push({ x: player.x + width - 400, y: ufoY + 40, speed: 6.5, offset: random(-120, 120) });
     }
     for (let i = bullets.length - 1; i >= 0; i--) {
       bullets[i].x -= bullets[i].speed; let bY = bullets[i].y + bullets[i].offset;
